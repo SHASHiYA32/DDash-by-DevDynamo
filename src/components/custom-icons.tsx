@@ -49,3 +49,5 @@ export function TabIcon({ name, className, size }: { name: string; className?: s
   const Icon = TAB_ICONS[name] ?? LayoutGrid;
   return <Icon className={className} size={size} />;
 }
+
+
