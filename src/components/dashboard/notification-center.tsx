@@ -3,11 +3,45 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sileo } from "sileo";
-import { Bell, BellOff, ExternalLink } from "lucide-react";
+import { Switch } from "glisse";
+import { Bell, BellOff, BellRing, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { api } from "@/lib/client";
+import { api, notify } from "@/lib/client";
 import type { AppNotification } from "@/lib/db";
+
+const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+function keyBytes(b64: string) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+async function readSubscription() {
+  const reg = await navigator.serviceWorker.register("/sw.js");
+  await navigator.serviceWorker.ready;
+  return { reg, sub: await reg.pushManager.getSubscription() };
+}
+
+async function sendToServer(sub: PushSubscription) {
+  const j = sub.toJSON();
+  return api("/api/push/subscribe", "POST", { endpoint: j.endpoint, keys: j.keys });
+}
+
+/** Called on sign-out so this device stops receiving the previous account's alerts. */
+export async function detachPush() {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) await api(`/api/push/subscribe?endpoint=${encodeURIComponent(sub.endpoint)}`, "DELETE");
+  } catch {
+    /* nothing to detach */
+  }
+}
+
+type PushState = "hidden" | "off" | "on" | "blocked" | "busy";
 
 const SEEN_KEY = "ddash-notif-toasted";
 const POLL_MS = 45_000;
@@ -41,6 +75,7 @@ export function NotificationCenter() {
   const router = useRouter();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
+  const [pushState, setPushState] = useState<PushState>("hidden");
   const seen = useRef<Set<string> | null>(null);
   const unread = items.filter((i) => !i.read).length;
 
@@ -59,6 +94,58 @@ export function NotificationCenter() {
     },
     [markRead, router],
   );
+
+  // works out whether alerts are available, and keeps this device linked to the signed-in user
+  useEffect(() => {
+    const supported = VAPID_PUBLIC && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    if (!supported) return;
+    if (Notification.permission === "denied") {
+      setTimeout(() => setPushState("blocked"), 0);
+      return;
+    }
+    let alive = true;
+    readSubscription()
+      .then(async ({ sub }) => {
+        if (!alive) return;
+        if (sub && Notification.permission === "granted") {
+          setPushState("on");
+          await sendToServer(sub);
+        } else setPushState("off");
+      })
+      .catch(() => alive && setPushState("hidden"));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const togglePush = useCallback(async (on: boolean) => {
+    setPushState("busy");
+    try {
+      const { reg, sub } = await readSubscription();
+      if (!on) {
+        if (sub) {
+          await api(`/api/push/subscribe?endpoint=${encodeURIComponent(sub.endpoint)}`, "DELETE");
+          await sub.unsubscribe();
+        }
+        setPushState("off");
+        notify.info("Alerts off", "You won't get alerts when DDash is closed.");
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        setPushState(perm === "denied" ? "blocked" : "off");
+        return;
+      }
+      const made = sub ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC!) }));
+      const r = await sendToServer(made);
+      if (!r.ok) throw new Error(r.error);
+      setPushState("on");
+      notify.success("Alerts on", "You'll be notified even when DDash is closed.");
+    } catch {
+      setPushState("off");
+      notify.error("Couldn't turn on alerts", "Your browser may not support them.");
+    }
+  }, []);
 
   const poll = useCallback(async () => {
     const r = await api<{ items: AppNotification[] }>("/api/notifications", "GET");
@@ -110,6 +197,25 @@ export function NotificationCenter() {
             Mark all read
           </Button>
         </div>
+        {pushState !== "hidden" && (
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+            <div className="flex items-center gap-2.5 text-sm">
+              <BellRing className="size-4 shrink-0 text-muted-foreground" />
+              <div>
+                <div className="font-medium leading-tight">Alerts when DDash is closed</div>
+                <div className="text-xs text-muted-foreground">
+                  {pushState === "blocked" ? "Blocked. Allow notifications in your browser's site settings." : "Get news on this device."}
+                </div>
+              </div>
+            </div>
+            <Switch
+              aria-label="Alerts when DDash is closed"
+              checked={pushState === "on"}
+              disabled={pushState === "blocked" || pushState === "busy"}
+              onCheckedChange={togglePush}
+            />
+          </div>
+        )}
         <div className="max-h-[60vh] overflow-y-auto">
           {items.length === 0 ? (
             <div className="grid place-items-center gap-2 px-4 py-10 text-sm text-muted-foreground">

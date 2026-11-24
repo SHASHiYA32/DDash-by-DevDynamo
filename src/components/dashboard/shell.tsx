@@ -16,7 +16,7 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
-import { NotificationCenter } from "@/components/dashboard/notification-center";
+import { NotificationCenter, detachPush } from "@/components/dashboard/notification-center";
 import { Logo } from "@/components/logo";
 import { TabIcon } from "@/components/custom-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -82,6 +82,7 @@ export function DashboardShell({ user, business, customTabs, showCustomHub, isDe
   const mobile = all.length <= 5 ? all : base.slice(0, 5);
 
   async function signOut() {
+    await detachPush();
     await api("/api/auth/logout");
     notify.info("Signed out", "See you soon.");
     router.push("/login");

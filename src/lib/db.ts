@@ -812,3 +812,42 @@ export async function markNotificationsRead(userId: string, businessId: string, 
     [userId, businessId, list],
   );
 }
+
+/* ---------------- browser push subscriptions ---------------- */
+
+export interface PushSub {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+export async function savePushSubscription(userId: string, businessId: string, sub: PushSub, userAgent: string | null) {
+  await query(
+    `insert into push_subscriptions (user_id, business_id, endpoint, p256dh, auth, user_agent)
+     values ($1,$2,$3,$4,$5,$6)
+     on conflict (endpoint) do update
+       set user_id = excluded.user_id, business_id = excluded.business_id,
+           p256dh = excluded.p256dh, auth = excluded.auth, user_agent = excluded.user_agent`,
+    [userId, businessId, sub.endpoint, sub.p256dh, sub.auth, userAgent?.slice(0, 200) ?? null],
+  );
+}
+
+export async function deletePushSubscriptions(endpoints: string[]) {
+  if (endpoints.length === 0) return;
+  await query("delete from push_subscriptions where endpoint = any($1::text[])", [endpoints]);
+}
+
+/** Devices to alert: everyone's, or one business's. */
+export async function listPushSubscriptions(businessId: string | null): Promise<PushSub[]> {
+  const rows = await query(
+    `select endpoint, p256dh, auth from push_subscriptions
+     where ($1::uuid is null or business_id = $1::uuid) limit 5000`,
+    [businessId],
+  );
+  return rows.map((r) => ({ endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }));
+}
+
+export async function countPushSubscriptions(): Promise<number> {
+  const rows = await query("select count(*)::int as n from push_subscriptions");
+  return rows[0]?.n ?? 0;
+}
