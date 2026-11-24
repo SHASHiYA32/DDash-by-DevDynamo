@@ -276,51 +276,6 @@ erDiagram
 
 ---
 
-## Getting started
-
-### 1. Install
-
-```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
-npm install
-```
-
-### 2. Create the database (Supabase)
-
-1. Create a project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor**, paste `supabase/schema.sql` and run it.
-3. Open **Connect → Direct → Transaction pooler** and copy the connection string.
-
-### 3. Configure
-
-Copy `.env.example` to `.env.local`:
-
-| Variable | Required | What it is |
-|---|:---:|---|
-| `DATABASE_URL` | ✅ | Supabase transaction pooler connection string |
-| `DDASH_SECRET` | ✅ | Random string that signs sessions (`openssl rand -base64 32`) |
-| `CRON_SECRET` | ✅ | Random string that protects the report cron job |
-| `DEV_EMAILS` | ✅ | Comma-separated emails allowed into `/dev` |
-| `NEXT_PUBLIC_SITE_URL` | | Your public address, for the sitemap and share cards |
-| `NEXT_PUBLIC_GOOGLE_VERIFICATION` | | Code from Google Search Console |
-
-### 4. Run
-
-```bash
-npm run dev
-```
-
-Register with the email you put in `DEV_EMAILS`, then open `/dev`.
-
-### 5. Deploy
-
-Push to GitHub and import the repo in [Vercel](https://vercel.com). Add the same environment variables. `vercel.json` already schedules the daily report job.
-
-> **Payments are not connected yet.** `/api/plan` switches plans directly so you can test the full flow. Connect Stripe or another provider there before charging real customers.
-
----
-
 ## SEO
 
 The landing page is built to be found:
