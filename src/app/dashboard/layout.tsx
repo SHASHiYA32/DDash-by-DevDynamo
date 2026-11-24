@@ -4,7 +4,7 @@ import { isManager, requireSession } from "@/lib/auth";
 import { listTabs } from "@/lib/db";
 import { planHas } from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Dashboard", robots: { index: false, follow: false } };
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, business, isDev } = await requireSession();

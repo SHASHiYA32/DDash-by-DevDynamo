@@ -759,7 +759,7 @@ export async function listNotificationsAdmin(): Promise<NotificationAdminRow[]> 
   const rows = await query(`
     select n.*, b.name as business_name,
       (select count(*)::int from users u
-         where (n.business_id is null or u.business_id = n.business_id) and u.created_at <= n.created_at) as recipients,
+         where (n.business_id is null or u.business_id = n.business_id)) as recipients,
       (select count(*)::int from notification_reads r where r.notification_id = n.id) as reads
     from notifications n left join businesses b on b.id = n.business_id
     order by n.created_at desc limit 100`);
@@ -778,16 +778,14 @@ export async function listNotificationsAdmin(): Promise<NotificationAdminRow[]> 
   }));
 }
 
-/** What one user should see: sent to everyone or to their business, not expired, sent after they joined. */
+/** What one user should see: sent to everyone or to their business and not expired. People who join later still get active ones. */
 export async function listNotificationsFor(userId: string, businessId: string): Promise<AppNotification[]> {
   const rows = await query(
     `select n.*, (r.user_id is not null) as is_read
      from notifications n
-     join users u on u.id = $1
      left join notification_reads r on r.notification_id = n.id and r.user_id = $1
      where (n.business_id is null or n.business_id = $2)
        and (n.expires_at is null or n.expires_at > now())
-       and n.created_at >= u.created_at
      order by n.created_at desc limit 30`,
     [userId, businessId],
   );

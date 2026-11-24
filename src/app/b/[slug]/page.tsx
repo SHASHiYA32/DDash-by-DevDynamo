@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth";
 import { getBusinessBySlug } from "@/lib/db";
 
-export const metadata: Metadata = { title: "Team sign in" };
+export const metadata: Metadata = { title: "Team sign in", robots: { index: false, follow: false } };
 
 export default async function EmployeePortal({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

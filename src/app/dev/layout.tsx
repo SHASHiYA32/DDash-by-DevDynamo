@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/card";
 import { requireDev } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Dev console" };
+export const metadata: Metadata = { title: "Dev console", robots: { index: false, follow: false } };
 
 export default async function DevLayout({ children }: { children: React.ReactNode }) {
   const { user } = await requireDev();
