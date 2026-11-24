@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTheme } from "@teispace/next-themes";
+import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
 import { AlertTriangle, Check, Monitor, Moon, Sun } from "lucide-react";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -262,6 +262,7 @@ export function Settings({ business, membersCount, user }: Props) {
                 </CardDescription>
               </div>
               <SegmentedControl
+                className="self-start justify-self-start"
                 aria-label="Billing period"
                 value={billing}
                 onValueChange={(v) => setBilling(v as "monthly" | "yearly")}

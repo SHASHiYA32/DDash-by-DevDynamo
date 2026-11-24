@@ -76,8 +76,10 @@ export function DashboardShell({ user, business, customTabs, showCustomHub, isDe
   const active =
     all.find((n) => n.href !== "/dashboard" && pathname.startsWith(n.href))?.key ?? "overview";
 
-  // bottom tab bar on phones: custom tabs only when there is room (they are all listed in the Custom hub)
-  const mobile = all.length <= 6 ? all : nav;
+  // bottom tab bar on phones: at most 5 tabs so it never runs off the screen.
+  // Settings lives in the account menu, and custom tabs are all listed in the Custom hub.
+  const base = nav.length > 5 ? nav.filter((n) => n.key !== "settings") : nav;
+  const mobile = all.length <= 5 ? all : base.slice(0, 5);
 
   async function signOut() {
     await api("/api/auth/logout");
@@ -193,6 +195,8 @@ export function DashboardShell({ user, business, customTabs, showCustomHub, isDe
         <TabBar
           aria-label="Main navigation"
           link={Link}
+          className="max-w-full"
+          style={{ "--lg-tab-width": `min(84px, calc((100vw - 40px) / ${mobile.length}))` } as React.CSSProperties}
           value={mobile.some((m) => m.key === active) ? active : null}
           items={mobile.map((n) => ({ value: n.key, label: n.label, href: n.href, icon: n.tabIcon }))}
         />
