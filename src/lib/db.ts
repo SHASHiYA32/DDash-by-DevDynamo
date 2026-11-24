@@ -702,3 +702,115 @@ export async function listBusinessesAdmin(): Promise<BusinessAdminRow[]> {
     createdAt: iso(r.created_at),
   }));
 }
+
+/* ---------------- push notifications (Dev console → businesses) ---------------- */
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  actionLabel: string | null;
+  actionUrl: string | null;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface NotificationAdminRow {
+  id: string;
+  title: string;
+  body: string;
+  actionLabel: string | null;
+  actionUrl: string | null;
+  businessId: string | null;
+  businessName: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  recipients: number;
+  reads: number;
+}
+
+export async function createNotification(
+  createdBy: string,
+  d: {
+    businessId: string | null;
+    title: string;
+    body: string;
+    actionLabel: string | null;
+    actionUrl: string | null;
+    expiresInDays: number | null;
+  },
+): Promise<string | null> {
+  if (d.businessId && !isUuid(d.businessId)) return null;
+  const rows = await query(
+    `insert into notifications (business_id, title, body, action_label, action_url, created_by, expires_at)
+     values ($1,$2,$3,$4,$5,$6, case when $7::int is null then null else now() + ($7::int * interval '1 day') end)
+     returning id`,
+    [d.businessId, d.title, d.body, d.actionLabel, d.actionUrl, createdBy, d.expiresInDays],
+  );
+  return rows[0]?.id ?? null;
+}
+
+export async function deleteNotification(id: string): Promise<boolean> {
+  if (!isUuid(id)) return false;
+  return (await query("delete from notifications where id=$1 returning id", [id])).length > 0;
+}
+
+export async function listNotificationsAdmin(): Promise<NotificationAdminRow[]> {
+  const rows = await query(`
+    select n.*, b.name as business_name,
+      (select count(*)::int from users u
+         where (n.business_id is null or u.business_id = n.business_id) and u.created_at <= n.created_at) as recipients,
+      (select count(*)::int from notification_reads r where r.notification_id = n.id) as reads
+    from notifications n left join businesses b on b.id = n.business_id
+    order by n.created_at desc limit 100`);
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    body: r.body,
+    actionLabel: r.action_label,
+    actionUrl: r.action_url,
+    businessId: r.business_id,
+    businessName: r.business_name,
+    expiresAt: r.expires_at ? iso(r.expires_at) : null,
+    createdAt: iso(r.created_at),
+    recipients: r.recipients,
+    reads: r.reads,
+  }));
+}
+
+/** What one user should see: sent to everyone or to their business, not expired, sent after they joined. */
+export async function listNotificationsFor(userId: string, businessId: string): Promise<AppNotification[]> {
+  const rows = await query(
+    `select n.*, (r.user_id is not null) as is_read
+     from notifications n
+     join users u on u.id = $1
+     left join notification_reads r on r.notification_id = n.id and r.user_id = $1
+     where (n.business_id is null or n.business_id = $2)
+       and (n.expires_at is null or n.expires_at > now())
+       and n.created_at >= u.created_at
+     order by n.created_at desc limit 30`,
+    [userId, businessId],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    body: r.body,
+    actionLabel: r.action_label,
+    actionUrl: r.action_url,
+    createdAt: iso(r.created_at),
+    read: !!r.is_read,
+  }));
+}
+
+export async function markNotificationsRead(userId: string, businessId: string, ids: string[] | "all") {
+  const list = ids === "all" ? null : ids.filter(isUuid);
+  if (list && list.length === 0) return;
+  await query(
+    `insert into notification_reads (notification_id, user_id)
+     select n.id, $1 from notifications n
+     where (n.business_id is null or n.business_id = $2)
+       and ($3::uuid[] is null or n.id = any($3::uuid[]))
+     on conflict do nothing`,
+    [userId, businessId, list],
+  );
+}

@@ -4,17 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu, SegmentedControl, Switch } from "glisse";
-import { Pencil, Plus, Trash2, Wrench } from "lucide-react";
+import { Megaphone, Pencil, Plus, Send, Trash2, Wrench } from "lucide-react";
 import { TabIcon } from "@/components/custom-icons";
 import { Button } from "@/components/ui/button";
 import { Badge, Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { Dropdown } from "@/components/ui/select";
 import { api, withToast } from "@/lib/client";
 import { fmtLong } from "@/lib/analytics";
 import { PLANS } from "@/lib/plans";
-import type { BusinessAdminRow, CustomRequest } from "@/lib/db";
+import type { BusinessAdminRow, CustomRequest, NotificationAdminRow } from "@/lib/db";
 
 interface TabRow {
   id: string;
@@ -38,10 +38,12 @@ export function DevConsole({
   businesses,
   requests,
   tabs,
+  notifications,
 }: {
   businesses: BusinessAdminRow[];
   requests: CustomRequest[];
   tabs: TabRow[];
+  notifications: NotificationAdminRow[];
 }) {
   const router = useRouter();
   const [view, setView] = useState("requests");
@@ -111,6 +113,7 @@ export function DevConsole({
             { value: "requests", label: `Requests${open ? ` (${open})` : ""}` },
             { value: "tabs", label: "Custom tabs" },
             { value: "businesses", label: "Businesses" },
+            { value: "notifications", label: "Notifications" },
           ]}
         />
       </div>
@@ -187,6 +190,8 @@ export function DevConsole({
         </Card>
       )}
 
+      {view === "notifications" && <NotificationsPanel businesses={businesses} notifications={notifications} />}
+
       {view === "businesses" && (
         <Card className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-sm">
@@ -238,6 +243,138 @@ export function DevConsole({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+const NOTE_EXPIRY = [
+  { value: "never", label: "Never expires" },
+  { value: "1", label: "Expires in 1 day" },
+  { value: "7", label: "Expires in 7 days" },
+  { value: "30", label: "Expires in 30 days" },
+];
+
+function NotificationsPanel({
+  businesses,
+  notifications,
+}: {
+  businesses: BusinessAdminRow[];
+  notifications: NotificationAdminRow[];
+}) {
+  const router = useRouter();
+  const [audience, setAudience] = useState("all");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [withAction, setWithAction] = useState(false);
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const [expiry, setExpiry] = useState("never");
+  const [busy, setBusy] = useState(false);
+
+  const audienceOptions = [
+    { value: "all", label: `Everyone (${businesses.length} businesses)` },
+    ...businesses.map((b) => ({ value: b.id, label: b.name })),
+  ];
+
+  async function send() {
+    setBusy(true);
+    const r = await withToast(
+      () =>
+        api("/api/dev/notifications", "POST", {
+          businessId: audience === "all" ? null : audience,
+          title,
+          body,
+          action: withAction ? { label, url } : null,
+          expiresInDays: expiry === "never" ? null : Number(expiry),
+        }),
+      { loading: "Sending…", success: "Notification sent", error: "Couldn't send" },
+    );
+    setBusy(false);
+    if (r.ok) {
+      setTitle("");
+      setBody("");
+      setLabel("");
+      setUrl("");
+      setWithAction(false);
+      router.refresh();
+    }
+  }
+
+  async function remove(id: string) {
+    const r = await withToast(() => api(`/api/dev/notifications?id=${id}`, "DELETE"), {
+      loading: "Deleting…",
+      success: "Notification removed",
+      error: "Couldn't delete",
+    });
+    if (r.ok) router.refresh();
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_1fr]">
+      <Card className="grid content-start gap-4 p-5">
+        <div className="flex items-center gap-2 font-medium">
+          <Megaphone className="size-4" /> New notification
+        </div>
+        <div className="grid gap-2">
+          <Label>Send to</Label>
+          <Dropdown value={audience} onChange={setAudience} options={audienceOptions} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="n-title">Title</Label>
+          <Input id="n-title" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="New feature: custom tabs" />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="n-body">Message (optional)</Label>
+          <Textarea id="n-body" value={body} maxLength={300} onChange={(e) => setBody(e.target.value)} placeholder="A short description…" />
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <Label>Add an action button</Label>
+          <Switch aria-label="Add an action button" checked={withAction} onCheckedChange={setWithAction} />
+        </div>
+        {withAction && (
+          <div className="grid gap-3 rounded-lg border border-dashed p-3">
+            <div className="grid gap-2">
+              <Label htmlFor="n-label">Button text</Label>
+              <Input id="n-label" value={label} maxLength={30} onChange={(e) => setLabel(e.target.value)} placeholder="Open settings" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="n-url">Opens</Label>
+              <Input id="n-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="/dashboard/settings or https://…" />
+              <p className="text-xs text-muted-foreground">An in-app path (starts with /) or an https:// link.</p>
+            </div>
+          </div>
+        )}
+        <div className="grid gap-2">
+          <Label>Expiry</Label>
+          <Dropdown value={expiry} onChange={setExpiry} options={NOTE_EXPIRY} />
+        </div>
+        <Button onClick={send} disabled={busy || title.trim().length < 2 || (withAction && (!label.trim() || !url.trim()))}>
+          <Send /> Send notification
+        </Button>
+      </Card>
+
+      <div className="grid content-start gap-3">
+        {notifications.length === 0 && <Card className="p-10 text-center text-sm text-muted-foreground">Nothing sent yet.</Card>}
+        {notifications.map((n) => (
+          <Card key={n.id} className="flex items-start justify-between gap-3 p-5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{n.title}</span>
+                <Badge tone={n.businessId ? "default" : "brand"}>{n.businessName ?? "Everyone"}</Badge>
+                {n.actionLabel && <Badge>Button: {n.actionLabel}</Badge>}
+              </div>
+              {n.body && <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>}
+              <div className="mt-1 text-xs text-muted-foreground">
+                {fmtLong(n.createdAt.slice(0, 10))} · read by {n.reads} of {n.recipients}
+                {n.expiresAt ? ` · expires ${fmtLong(n.expiresAt.slice(0, 10))}` : ""}
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" aria-label="Delete notification" onClick={() => remove(n.id)}>
+              <Trash2 />
+            </Button>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

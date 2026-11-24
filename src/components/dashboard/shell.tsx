@@ -16,6 +16,7 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
+import { NotificationCenter } from "@/components/dashboard/notification-center";
 import { Logo } from "@/components/logo";
 import { TabIcon } from "@/components/custom-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -153,6 +154,7 @@ export function DashboardShell({ user, business, customTabs, showCustomHub, isDe
             <span className="text-sm text-muted-foreground">{business.name}</span>
           </div>
           <div className="flex items-center gap-1">
+            <NotificationCenter />
             <ThemeToggle />
             <div className="flex items-center gap-2 pl-1">
               <div className="hidden text-right leading-tight sm:block">
