@@ -5,7 +5,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
 import { getSession } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Sign in", robots: { index: false, follow: true }, alternates: { canonical: "/login" } };
 
 export default async function LoginPage() {
   if (await getSession()) redirect("/dashboard");

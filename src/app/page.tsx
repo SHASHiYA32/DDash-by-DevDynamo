@@ -4,11 +4,15 @@ import { Navbar } from "@/components/landing/navbar";
 import { Pricing } from "@/components/landing/pricing";
 import { Faq, Features, HowItWorks } from "@/components/landing/sections";
 import { getSession } from "@/lib/auth";
+import { FAQS } from "@/lib/faq";
+import { faqJsonLd, softwareJsonLd } from "@/lib/site";
 
 export default async function Home() {
   const session = await getSession();
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd()) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd(FAQS)) }} />
       <Navbar signedIn={!!session} />
       <main>
         <Hero />

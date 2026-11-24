@@ -6,7 +6,11 @@ import { RegisterForm } from "@/components/auth/register-form";
 import { getSession } from "@/lib/auth";
 import type { PlanId } from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Register your business" };
+export const metadata: Metadata = {
+  title: "Register your business: free business dashboard",
+  description: "Create your DDash workspace in a minute. Free Starter plan, no card needed.",
+  alternates: { canonical: "/register" },
+};
 
 export default async function RegisterPage({
   searchParams,
