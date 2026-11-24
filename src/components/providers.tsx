@@ -1,6 +1,6 @@
 "use client";
 
-import { ThemeProvider, useTheme } from "@teispace/next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sileo";
 import "sileo/styles.css";
 
@@ -35,7 +35,7 @@ function ThemedToaster() {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute={["class", "data-theme"]} defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
       <ThemedToaster />
     </ThemeProvider>

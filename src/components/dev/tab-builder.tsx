@@ -270,6 +270,7 @@ export function TabBuilder({
                     <Badge tone="outline">{kind === "data" ? "Data tab" : "Page"} (can&apos;t change)</Badge>
                   ) : (
                     <SegmentedControl
+                      className="self-start justify-self-start"
                       aria-label="Tab type"
                       value={kind}
                       onValueChange={(v) => setKind(v as TabKind)}

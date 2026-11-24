@@ -134,6 +134,7 @@ export function Transactions({ txs, currency, userId, isManager, canExport }: Pr
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <SegmentedControl
+          className="self-start justify-self-start"
           aria-label="Filter"
           value={filter}
           onValueChange={(v) => {
