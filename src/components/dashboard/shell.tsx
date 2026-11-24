@@ -85,7 +85,7 @@ export function DashboardShell({ user, business, customTabs, showCustomHub, isDe
     await detachPush();
     await api("/api/auth/logout");
     notify.info("Signed out", "See you soon.");
-    router.push("/login");
+    router.push("/");
     router.refresh();
   }
 
