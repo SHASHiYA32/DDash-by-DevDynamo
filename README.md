@@ -286,8 +286,6 @@ The landing page is built to be found:
 - `sitemap.xml` and `robots.txt`, with private pages (dashboard, dev console, team sign-in) kept out of search
 - `manifest.webmanifest` so the app can be installed on a phone
 
-After deploying, submit `https://your-domain/sitemap.xml` in Google Search Console. A custom domain, a few backlinks (your portfolio, GitHub, social profiles) and regular helpful content do more for ranking than any single setting.
-
 ---
 
 ## Project layout
