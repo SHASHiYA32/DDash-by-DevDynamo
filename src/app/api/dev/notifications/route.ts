@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { fail, getSession, ok } from "@/lib/auth";
 import { createNotification, deleteNotification } from "@/lib/db";
+import { pushEnabled, sendPush } from "@/lib/push";
 
 const safeUrl = z
   .string()
@@ -15,6 +16,7 @@ const schema = z.object({
   body: z.string().trim().max(300).default(""),
   action: z.object({ label: z.string().trim().min(1).max(30), url: safeUrl }).nullable().default(null),
   expiresInDays: z.number().int().min(1).max(365).nullable().default(null),
+  push: z.boolean().default(false),
 });
 
 export async function POST(req: NextRequest) {
@@ -31,7 +33,18 @@ export async function POST(req: NextRequest) {
     actionUrl: d.action?.url ?? null,
     expiresInDays: d.expiresInDays,
   });
-  return id ? ok({ id }) : fail("Business not found", 404);
+  if (!id) return fail("Business not found", 404);
+  let pushed = 0;
+  if (d.push && pushEnabled) {
+    const r = await sendPush(d.businessId, {
+      title: d.title,
+      body: d.body,
+      url: d.action?.url ?? "/dashboard",
+      tag: `ddash-${id}`,
+    });
+    pushed = r.sent;
+  }
+  return ok({ id, pushed });
 }
 
 export async function DELETE(req: NextRequest) {

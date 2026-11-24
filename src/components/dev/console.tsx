@@ -11,7 +11,7 @@ import { Badge, Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { Dropdown } from "@/components/ui/select";
-import { api, withToast } from "@/lib/client";
+import { api, notify, withToast } from "@/lib/client";
 import { fmtLong } from "@/lib/analytics";
 import { PLANS } from "@/lib/plans";
 import type { BusinessAdminRow, CustomRequest, NotificationAdminRow } from "@/lib/db";
@@ -39,11 +39,15 @@ export function DevConsole({
   requests,
   tabs,
   notifications,
+  pushReady,
+  pushDevices,
 }: {
   businesses: BusinessAdminRow[];
   requests: CustomRequest[];
   tabs: TabRow[];
   notifications: NotificationAdminRow[];
+  pushReady: boolean;
+  pushDevices: number;
 }) {
   const router = useRouter();
   const [view, setView] = useState("requests");
@@ -190,7 +194,7 @@ export function DevConsole({
         </Card>
       )}
 
-      {view === "notifications" && <NotificationsPanel businesses={businesses} notifications={notifications} />}
+      {view === "notifications" && <NotificationsPanel businesses={businesses} notifications={notifications} pushReady={pushReady} pushDevices={pushDevices} />}
 
       {view === "businesses" && (
         <Card className="overflow-x-auto">
@@ -257,9 +261,13 @@ const NOTE_EXPIRY = [
 function NotificationsPanel({
   businesses,
   notifications,
+  pushReady,
+  pushDevices,
 }: {
   businesses: BusinessAdminRow[];
   notifications: NotificationAdminRow[];
+  pushReady: boolean;
+  pushDevices: number;
 }) {
   const router = useRouter();
   const [audience, setAudience] = useState("all");
@@ -269,6 +277,7 @@ function NotificationsPanel({
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [expiry, setExpiry] = useState("never");
+  const [push, setPush] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const audienceOptions = [
@@ -286,11 +295,14 @@ function NotificationsPanel({
           body,
           action: withAction ? { label, url } : null,
           expiresInDays: expiry === "never" ? null : Number(expiry),
+          push: pushReady && push,
         }),
       { loading: "Sending…", success: "Notification sent", error: "Couldn't send" },
     );
     setBusy(false);
     if (r.ok) {
+      const pushed = (r.data as { pushed?: number }).pushed ?? 0;
+      if (pushReady && push) notify.info("Push alerts", pushed === 1 ? "Delivered to 1 device" : `Delivered to ${pushed} devices`);
       setTitle("");
       setBody("");
       setLabel("");
@@ -348,6 +360,21 @@ function NotificationsPanel({
           <Label>Expiry</Label>
           <Dropdown value={expiry} onChange={setExpiry} options={NOTE_EXPIRY} />
         </div>
+        {pushReady ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div>
+              <Label>Also send as a push alert</Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Shows on phones and computers even when DDash is closed. {pushDevices} device{pushDevices === 1 ? "" : "s"} have alerts on.
+              </p>
+            </div>
+            <Switch aria-label="Also send as a push alert" checked={push} onCheckedChange={setPush} />
+          </div>
+        ) : (
+          <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+            Push alerts for a closed app are off. Add the VAPID keys in your environment variables to turn them on (see the README).
+          </p>
+        )}
         <Button onClick={send} disabled={busy || title.trim().length < 2 || (withAction && (!label.trim() || !url.trim()))}>
           <Send /> Send notification
         </Button>
